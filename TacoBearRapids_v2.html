@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Taco Bear Rapids V2</title>
+<style>
+:root {
+  --bg: #0d1016; --panel: #151b24; --panel2: #1d2531;
+  --text: #f3f7ff; --muted: #a8b4c8;
+  --accent: #ffd166; --accent2: #41d3ff;
+  --danger: #ff5d73; --good: #7cff9b;
+  --shadow: 0 20px 60px rgba(0,0,0,.35)
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; height: 100%;
+  background: radial-gradient(circle at 50% 0%, #182235 0%, var(--bg) 55%);
+  color: var(--text);
+  font-family: Inter, system-ui, sans-serif;
+  overflow: hidden;
+}
+canvas { display: block; width: 100vw; height: 100dvh; }
+#ui { position: fixed; inset: 0; pointer-events: none; }
+#top { display: flex; justify-content: space-between; gap: 12px; padding: 16px; align-items: flex-start; }
+#brand {
+  pointer-events: none; display: flex; flex-direction: column; gap: 4px;
+  text-shadow: 0 2px 0 rgba(0,0,0,.3);
+}
+#brand h1 { margin: 0; font-size: 18px; letter-spacing: .14em; text-transform: uppercase; }
+#brand p { margin: 0; color: var(--muted); font-size: 12px; }
+#stats { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.pill {
+  background: rgba(10,14,20,.55); backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,.08); border-radius: 999px;
+  padding: 10px 14px; box-shadow: var(--shadow);
+  font-weight: 700; font-size: 13px;
+  display: flex; align-items: center; gap: 6px;
+}
+#center {
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  text-align: center; display: none; pointer-events: auto; z-index: 100;
+}
+#card {
+  width: min(92vw,560px);
+  background: linear-gradient(180deg,rgba(24,31,42,.92),rgba(12,16,22,.92));
+  border: 1px solid rgba(255,255,255,.08); border-radius: 24px;
+  padding: 22px; box-shadow: var(--shadow);
+}
+#card h2 { margin: 0 0 8px; font-size: clamp(32px,7vw,64px); line-height: .95; }
+#card p { margin: 0 0 16px; color: var(--muted); line-height: 1.6; }
+.btn {
+  pointer-events: auto; display: inline-flex; align-items: center; justify-content: center;
+  gap: 8px; border-radius: 16px; padding: 14px 18px; font-weight: 900; font-size: 15px; cursor: pointer;
+  border: none;
+}
+#btn {
+  background: linear-gradient(180deg,#ffcf5a,#ff9d3d); color: #23150a;
+  box-shadow: 0 10px 30px rgba(255,167,61,.35);
+}
+#btn:active { transform: translateY(1px); }
+.secondary-btn {
+  border: 1px solid rgba(255,255,255,.16);
+  background: rgba(255,255,255,.06); color: #f3f7ff;
+}
+#mobileLayer {
+  position: fixed; left: 0; right: 0; bottom: 0; display: none;
+  justify-content: space-between; gap: 14px;
+  padding: 16px 18px calc(16px + env(safe-area-inset-bottom));
+  pointer-events: none; z-index: 20;
+}
+.hold-btn {
+  pointer-events: auto; flex: 1; height: 92px; border-radius: 24px;
+  border: 1px solid rgba(255,255,255,.16);
+  background: linear-gradient(180deg,rgba(12,16,24,.72),rgba(0,0,0,.45));
+  color: #fff; font-size: 34px; font-weight: 900;
+  box-shadow: 0 18px 50px rgba(0,0,0,.4);
+  touch-action: none; /* prevent zoom on double tap */
+}
+#pauseOverlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  display: none; justify-content: center; align-items: center; z-index: 50;
+  backdrop-filter: blur(4px);
+}
+#pauseOverlay h1 {
+  font-size: 48px; letter-spacing: 8px; color: white; margin: 0;
+  text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+.taco-icon { font-size: 16px; transition: opacity 0.3s, filter 0.3s; }
+.taco-icon.lost { opacity: 0.3; filter: grayscale(100%); }
+
+@media (max-width:720px){
+  #top { padding: 12px; flex-direction: column; }
+  .pill { padding: 8px 12px; font-size: 12px; }
+}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="ui">
+  <div id="top">
+    <div id="brand"><h1>Taco Bear Rapids</h1><p>Catch the upstream tacos. Miss too many and the river wins.</p></div>
+    <div id="stats">
+      <div class="pill" id="score">Score: 0 (Best: 0)</div>
+      <div class="pill" id="combo">Combo: x1</div>
+      <div class="pill" id="lives"></div>
+      <div class="pill" id="time">60.0s</div>
+    </div>
+  </div>
+  
+  <div id="center">
+    <div id="card">
+      <h2 id="title">TACO BEAR RAPIDS</h2>
+      <p id="copy">Desktop: hold A/D or ←/→. Space to Burst. P to Pause.<br>Mobile: use the on-screen arrows.</p>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+        <button class="btn" id="btn">Start Run</button>
+        <button class="btn secondary-btn" id="fxBtn">FX Mode</button>
+        <button class="btn secondary-btn" id="stopBtn" style="display:none">Stop</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="mobileLayer">
+  <button class="hold-btn" id="leftHold">◀</button>
+  <button class="hold-btn" id="rightHold">▶</button>
+</div>
+
+<div id="pauseOverlay">
+  <h1>PAUSED</h1>
+</div>
+
+<script>
+// --- Audio System ---
+let audioCtx = null;
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+}
+function playTone(freq, type, duration, vol=0.1) {
+    if(!audioCtx) return;
+    try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    } catch(e) {}
+}
+
+const sfx = {
+    catchNormal: () => playTone(600, 'sine', 0.1, 0.1),
+    catchGold: () => { playTone(800, 'square', 0.1, 0.1); setTimeout(()=>playTone(1200, 'square', 0.2, 0.1), 50); },
+    miss: () => playTone(150, 'sawtooth', 0.3, 0.1),
+    hitObstacle: () => { playTone(100, 'square', 0.4, 0.2); setTimeout(()=>playTone(80, 'square', 0.4, 0.2), 100); },
+    gameOver: () => { playTone(200, 'sawtooth', 0.5, 0.2); setTimeout(()=>playTone(150, 'sawtooth', 0.8, 0.2), 300); }
+};
+
+// --- Game State & UI Elements ---
+const c = document.getElementById('game');
+const x = c.getContext('2d', { alpha: false }); // optimize
+const scoreEl = document.getElementById('score');
+const comboEl = document.getElementById('combo');
+const livesEl = document.getElementById('lives');
+const timeEl = document.getElementById('time');
+const center = document.getElementById('center');
+const btn = document.getElementById('btn');
+const fxBtn = document.getElementById('fxBtn');
+const stopBtn = document.getElementById('stopBtn');
+const title = document.getElementById('title');
+const copy = document.getElementById('copy');
+const mobileLayer = document.getElementById('mobileLayer');
+const leftHold = document.getElementById('leftHold');
+const rightHold = document.getElementById('rightHold');
+const pauseOverlay = document.getElementById('pauseOverlay');
+
+const STATE = { MENU: 0, PLAY: 1, PAUSED: 2, OVER: 3 };
+let currentState = STATE.MENU;
+
+let W, H, dpr;
+let lanes = 5, playerLane = 2, targetLane = 2, bearLanePos = 2;
+let bearVelocity = 0, bearTilt = 0, bearMouth = 0, stunTimer = 0;
+let score = 0, combo = 1, escapes = 0, timeLeft = 60;
+let shake = 0, flash = 0, burst = 0, t = 0;
+let ultraFX = true, moveDir = 0, moveHeld = 0;
+let highScore = localStorage.getItem('tacobear_highscore') || 0;
+const MAX_ESCAPES = 5;
+const bearMoveSpeed = 1.0;
+
+// --- Object Pools & Entities ---
+class Pool {
+    constructor(createFn) {
+        this.createFn = createFn;
+        this.active = [];
+        this.inactive = [];
+    }
+    get() {
+        const obj = this.inactive.pop() || this.createFn();
+        this.active.push(obj);
+        return obj;
+    }
+    release(obj) {
+        obj.dead = false; // reset
+        this.inactive.push(obj);
+    }
+    update(dt) {
+        for (let i = this.active.length - 1; i >= 0; i--) {
+            const obj = this.active[i];
+            obj.update(dt);
+            if (obj.dead) {
+                this.release(obj);
+                this.active.splice(i, 1);
+            }
+        }
+    }
+    draw(ctx) {
+        for (const obj of this.active) obj.draw(ctx);
+    }
+    clear() {
+        while(this.active.length) this.release(this.active.pop());
+    }
+}
+
+// Entity definitions
+function createRiverItem() {
+    return {
+        isObstacle: false, type: 'normal', lane: 0, y: 0, speed: 0, phase: 0, rot: 0, scale: 1, dead: false,
+        init(isObstacle, lane, y, speed, type) {
+            this.isObstacle = isObstacle;
+            this.lane = lane; this.y = y; this.speed = speed; this.type = type;
+            this.phase = Math.random() * 10;
+            this.rot = (Math.random() - .5) * 0.3;
+            this.scale = isObstacle ? 1.0 + Math.random()*0.4 : 0.92 + Math.random() * 0.16;
+            this.dead = false;
+        },
+        update() {
+            this.y -= this.speed * (1 + burst * 0.55);
+            this.phase += 0.06;
+            
+            // Collision detection
+            if (Math.abs(this.y - riverY()) < 62 && Math.abs(this.lane - bearLanePos) < 0.42 && stunTimer <= 0) {
+                if(this.isObstacle) hitObstacle(this);
+                else catchTaco(this);
+                this.dead = true;
+            }
+            // Escaped detection
+            if (this.y < -90) {
+                this.dead = true;
+                if (!this.isObstacle) {
+                    escapes++;
+                    combo = 1;
+                    shake = Math.max(shake, 6);
+                    splash(laneX(this.lane), 34, '#41d3ff', 16);
+                    textPop('ESCAPED!', laneX(this.lane), 56, '#ff6b7d', 20);
+                    sfx.miss();
+                    updateLivesUI();
+                }
+            }
+        },
+        draw(ctx) {
+            const px = laneX(this.lane) + Math.sin(this.phase + t * 0.02) * 16;
+            ctx.save();
+            ctx.translate(px, this.y);
+            ctx.rotate(this.rot + Math.sin(this.phase + t * 0.03) * 0.18);
+            if (this.isObstacle) {
+                ctx.drawImage(offscreenObstacle, -40 * this.scale, -40 * this.scale, 80 * this.scale, 80 * this.scale);
+            } else {
+                const img = this.type === 'gold' ? offscreenTacoGold : (this.type === 'spicy' ? offscreenTacoSpicy : offscreenTacoNormal);
+                ctx.drawImage(img, -40 * this.scale, -40 * this.scale, 80 * this.scale, 80 * this.scale);
+            }
+            ctx.restore();
+        }
+    };
+}
+
+function createFX() {
+    return {
+        kind: 'drop', txt: '', x: 0, y: 0, vx: 0, vy: 0, r: 0, life: 0, maxLife: 0, color: '', size: 0, dead: false,
+        initDrop(x, y, vx, vy, r, life, color) {
+            this.kind = 'drop'; this.x=x; this.y=y; this.vx=vx; this.vy=vy; this.r=r; this.life=life; this.maxLife=life; this.color=color; this.dead=false;
+        },
+        initText(txt, x, y, vx, vy, life, color, size) {
+            this.kind = 'text'; this.txt=txt; this.x=x; this.y=y; this.vx=vx; this.vy=vy; this.life=life; this.maxLife=life; this.color=color; this.size=size; this.dead=false;
+        },
+        initRing(x, y, r, life, color) {
+            this.kind = 'ring'; this.x=x; this.y=y; this.r=r; this.life=life; this.maxLife=life; this.color=color; this.dead=false;
+        },
+        update() {
+            if (this.kind === 'drop') { this.x += this.vx; this.y += this.vy; this.vy += 0.2; }
+            else if (this.kind === 'text') { this.x += this.vx; this.y += this.vy; }
+            else if (this.kind === 'ring') { this.r += 4; }
+            this.life--;
+            if(this.life <= 0) this.dead = true;
+        },
+        draw(ctx) {
+            ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+            if (this.kind === 'drop') {
+                ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2); ctx.fill();
+            } else if (this.kind === 'text') {
+                ctx.fillStyle = this.color; ctx.font = `900 ${this.size}px Inter,system-ui`; ctx.textAlign = 'center';
+                ctx.shadowColor = 'rgba(0,0,0,.4)'; ctx.shadowBlur = 10; ctx.fillText(this.txt, this.x, this.y); ctx.shadowBlur = 0;
+            } else if (this.kind === 'ring') {
+                ctx.strokeStyle = this.color; ctx.lineWidth = 4; ctx.shadowColor = this.color; ctx.shadowBlur = 12;
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2); ctx.stroke(); ctx.shadowBlur = 0;
+            }
+            ctx.globalAlpha = 1;
+        }
+    };
+}
+
+const riverItemsPool = new Pool(createRiverItem);
+const fxPool = new Pool(createFX);
+
+let foam = [], embers = [], aurora = [], godRays = [], trails = [];
+
+// --- Pre-rendering (Offscreen Canvases) ---
+function createOffscreen(w, h, renderFn) {
+    const cvs = document.createElement('canvas');
+    cvs.width = w; cvs.height = h;
+    const ctx = cvs.getContext('2d');
+    renderFn(ctx, w/2, h/2);
+    return cvs;
+}
+
+function drawTacoPath(ctx, type) {
+    ctx.shadowColor = type === 'gold' ? 'rgba(255,209,102,.55)' : type === 'spicy' ? 'rgba(255,99,132,.45)' : 'rgba(0,0,0,.25)';
+    ctx.shadowBlur = 18;
+    ctx.beginPath();
+    ctx.moveTo(-30, 0); ctx.quadraticCurveTo(0, -34, 30, 0); ctx.quadraticCurveTo(0, 30, -30, 0);
+    ctx.fillStyle = type === 'gold' ? '#ffd86f' : '#f1c164';
+    ctx.fill();
+    ctx.fillStyle = type === 'gold' ? '#fff2a8' : '#72d56b';
+    for (let i = 0; i < 5; i++) {
+        ctx.beginPath(); ctx.arc(-18 + i * 9, -2 - Math.sin(i) * 2, 7, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = '#7a3f21';
+    for (let i = 0; i < 5; i++) ctx.fillRect(-18 + i * 9, 2, 7, 8);
+    ctx.fillStyle = '#ff5a64';
+    for (let i = 0; i < 4; i++) {
+        ctx.beginPath(); ctx.arc(-12 + i * 8, 8, 4, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = '#2a1a11';
+    ctx.beginPath(); ctx.arc(-8, -6, 3, 0, Math.PI * 2); ctx.arc(8, -6, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#2a1a11';
+    ctx.beginPath(); ctx.arc(0, 2, 8, 0.1, Math.PI - 0.1); ctx.stroke();
+    if (type === 'gold') {
+        ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.beginPath(); ctx.arc(0, -16, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffb300'; ctx.font = `18px Arial`; ctx.textAlign = 'center'; ctx.textBaseline='middle'; ctx.fillText('★', 0, -15);
+    }
+    if (type === 'spicy') {
+        ctx.fillStyle = '#ff334e'; ctx.beginPath(); ctx.moveTo(22, -20);
+        ctx.quadraticCurveTo(36, -18, 28, -2); ctx.quadraticCurveTo(18, -10, 22, -20); ctx.fill();
+    }
+}
+
+function drawObstaclePath(ctx) {
+    ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 10;
+    ctx.fillStyle = '#4a2f1d';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 20, 35, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#331d0d';
+    ctx.beginPath(); ctx.ellipse(-5, 0, 15, 30, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#6b442a';
+    ctx.beginPath(); ctx.ellipse(0, -30, 15, 6, 0, 0, Math.PI*2); ctx.fill();
+}
+
+const offscreenTacoNormal = createOffscreen(100, 100, (ctx, cx, cy) => { ctx.translate(cx, cy); drawTacoPath(ctx, 'normal'); });
+const offscreenTacoGold = createOffscreen(100, 100, (ctx, cx, cy) => { ctx.translate(cx, cy); drawTacoPath(ctx, 'gold'); });
+const offscreenTacoSpicy = createOffscreen(100, 100, (ctx, cx, cy) => { ctx.translate(cx, cy); drawTacoPath(ctx, 'spicy'); });
+const offscreenObstacle = createOffscreen(100, 100, (ctx, cx, cy) => { ctx.translate(cx, cy); drawObstaclePath(ctx); });
+
+// Bear pre-rendering is slightly dynamic (tilt, bob) so we still draw it dynamically, but we could pre-render parts.
+function roundRect(ctx, px, py, w, h, r, fill, stroke) {
+    ctx.beginPath(); ctx.moveTo(px + r, py); ctx.arcTo(px + w, py, px + w, py + h, r); ctx.arcTo(px + w, py + h, px, py + h, r);
+    ctx.arcTo(px, py + h, px, py, r); ctx.arcTo(px, py, px + w, py, r);
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.stroke(); }
+}
+
+// --- Logic ---
+function resize() {
+    dpr = Math.min(devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    c.width = W * dpr; c.height = H * dpr;
+    x.setTransform(dpr, 0, 0, dpr, 0, 0);
+    buildFoam();
+}
+function isMobile() { return innerWidth < 900 || innerHeight > innerWidth; }
+function mobileScale() { return isMobile() ? Math.min(1, innerHeight / 860) : 1; }
+addEventListener('resize', resize);
+
+function buildFoam() {
+    foam = []; embers = []; aurora = []; godRays = []; trails = [];
+    for (let i = 0; i < 40; i++) foam.push({ x: Math.random(), y: Math.random(), r: 8 + Math.random() * 26, s: 0.2 + Math.random() * 0.6 });
+    for (let i = 0; i < 42; i++) embers.push({ x: Math.random() * W, y: Math.random() * H * 0.35, r: 0.8 + Math.random() * 2.2, s: 0.2 + Math.random() * 0.7, a: 0.15 + Math.random() * 0.3 });
+    for (let i = 0; i < 8; i++) aurora.push({ x: Math.random() * W, y: H * 0.04 + i * 8, w: W * (0.22 + Math.random() * 0.18), h: 22 + Math.random() * 16, phase: Math.random() * Math.PI * 2 });
+    for (let i = 0; i < 10; i++) godRays.push({ x: W * (0.12 + i * 0.09), w: 26 + Math.random() * 24, a: 0.08 + Math.random() * 0.08 });
+}
+
+function updateLivesUI() {
+    let html = '';
+    for(let i=0; i<MAX_ESCAPES; i++) {
+        if(i < escapes) html += '<span class="taco-icon lost">🌮</span>';
+        else html += '<span class="taco-icon">🌮</span>';
+    }
+    livesEl.innerHTML = html;
+}
+
+function laneX(l) { return W * (0.18 + 0.64 * (l / (lanes - 1))); }
+function riverY() { return H * 0.72; }
+
+function reset() {
+    initAudio();
+    score = 0; combo = 1; escapes = 0; timeLeft = 60;
+    playerLane = 2; targetLane = 2; bearLanePos = 2; bearVelocity = 0; bearTilt = 0; bearMouth = 0; stunTimer = 0;
+    currentState = STATE.PLAY; pauseOverlay.style.display = 'none';
+    shake = 0; flash = 0; burst = 0;
+    riverItemsPool.clear(); fxPool.clear(); trails = [];
+    title.textContent = 'TACO BEAR RAPIDS';
+    copy.innerHTML = 'Catch tacos before they escape upstream. Golden tacos are combo fuel.<br>Watch out for logs!';
+    btn.textContent = 'Start Run';
+    stopBtn.style.display = 'none';
+    center.style.display = 'none';
+    mobileLayer.style.display = isMobile() ? 'flex' : 'none';
+    updateLivesUI();
+    scoreEl.textContent = `Score: 0 (Best: ${highScore})`;
+}
+
+function togglePause() {
+    if (currentState === STATE.PLAY) {
+        currentState = STATE.PAUSED;
+        pauseOverlay.style.display = 'flex';
+    } else if (currentState === STATE.PAUSED) {
+        currentState = STATE.PLAY;
+        pauseOverlay.style.display = 'none';
+        initAudio(); // Just in case
+    }
+}
+
+function spawn() {
+    const lane = Math.floor(Math.random() * lanes);
+    const speed = (1.7 + Math.random() * 1.2 + (60 - timeLeft) * 0.02) / 3;
+    
+    // 15% chance for obstacle
+    const roll = Math.random();
+    if(roll < 0.15) {
+        riverItemsPool.get().init(true, lane, H + 50, speed, 'obstacle');
+    } else {
+        const typeRoll = Math.random();
+        const type = typeRoll < 0.12 ? 'gold' : typeRoll < 0.24 ? 'spicy' : 'normal';
+        riverItemsPool.get().init(false, lane, H + 50, speed, type);
+    }
+}
+
+function splash(px, py, color, count = 18) {
+    for (let i = 0; i < count; i++) fxPool.get().initDrop(px, py, (Math.random() - .5) * 10, -Math.random() * 7 - 1, 3 + Math.random() * 8, 20 + Math.random() * 16, color);
+}
+function textPop(txt, px, py, color, size = 18) {
+    fxPool.get().initText(txt, px, py, (Math.random() - .5) * 0.8, -1.4, 42, color, size);
+}
+function ring(px, py, color) {
+    fxPool.get().initRing(px, py, 10, 18, color);
+}
+
+function catchTaco(o) {
+    const gain = Math.floor(10 * combo * (o.type === 'gold' ? 3 : 1));
+    score += gain;
+    combo = Math.min(12, combo + (o.type === 'gold' ? 2 : 1));
+    burst = Math.min(1, burst + .18);
+    shake = Math.min(24, shake + 5);
+    flash = 1; bearMouth = 1;
+    
+    if(o.type === 'gold') sfx.catchGold(); else sfx.catchNormal();
+
+    splash(laneX(o.lane), o.y, '#8be9ff', o.type === 'gold' ? 30 : 20);
+    ring(laneX(o.lane), o.y, '#ffd166');
+    textPop(o.type === 'gold' ? `MEGA +${gain}` : `+${gain}`, laneX(o.lane), o.y - 8, o.type === 'gold' ? '#ffe38b' : '#ffffff', o.type === 'gold' ? 24 : 18);
+    if (combo >= 3) textPop(`x${combo} COMBO`, laneX(o.lane), o.y - 30, '#ff9ad6', 18);
+    
+    for (let i = 0; i < 10; i++) trails.push({ x: laneX(o.lane), y: o.y, vx: (Math.random() - .5) * 8, vy: (Math.random() - .8) * 10, life: 18 + Math.random() * 10, c: o.type === 'gold' ? 'rgba(255,214,102,.85)' : 'rgba(139,233,255,.75)' });
+}
+
+function hitObstacle(o) {
+    combo = 1;
+    stunTimer = 60; // 60 frames stun
+    shake = Math.max(shake, 15);
+    flash = 1;
+    bearVelocity = (Math.random() > 0.5 ? 1 : -1) * 2; // throw off course
+    sfx.hitObstacle();
+    splash(laneX(o.lane), o.y, '#8a5a34', 30);
+    textPop('STUNNED!', laneX(o.lane), o.y - 20, '#ff5d73', 24);
+}
+
+function update() {
+    if (currentState !== STATE.PLAY) return;
+    t++;
+    timeLeft = Math.max(0, timeLeft - 1 / 60);
+    
+    // Spawn rate increases as time goes down
+    const spawnRate = 0.0073 + ((60 - timeLeft) / 60) * 0.01;
+    if (Math.random() < spawnRate) spawn();
+    
+    if (stunTimer > 0) {
+        stunTimer--;
+        bearTilt += 15; // spin when stunned
+    } else {
+        if (moveDir !== 0) targetLane = Math.max(0, Math.min(lanes - 1, targetLane + moveDir * 0.12));
+        if (moveHeld !== 0) targetLane = Math.max(0, Math.min(lanes - 1, targetLane + moveHeld * 0.18));
+        const bearDelta = targetLane - bearLanePos;
+        bearVelocity += bearDelta * 0.22;
+        bearVelocity *= 0.58;
+        bearLanePos += bearVelocity * bearMoveSpeed;
+        bearTilt += ((bearVelocity * 18) - bearTilt) * 0.22;
+        bearMouth *= 0.88;
+        playerLane = Math.round(bearLanePos);
+    }
+
+    riverItemsPool.update();
+    fxPool.update();
+    
+    for (const tr of trails) { tr.x += tr.vx; tr.y += tr.vy; tr.vy += 0.22; tr.life--; }
+    trails = trails.filter(tr => tr.life > 0);
+    
+    burst = Math.max(0, burst - .012);
+    flash = Math.max(0, flash - .04);
+    shake = Math.max(0, shake - .6);
+    
+    if (timeLeft <= 0 || escapes >= MAX_ESCAPES) {
+        currentState = STATE.OVER;
+        sfx.gameOver();
+        if(score > highScore) {
+            highScore = score;
+            localStorage.setItem('tacobear_highscore', highScore);
+        }
+        center.style.display = 'block';
+        title.textContent = escapes >= MAX_ESCAPES ? 'THE RIVER WINS' : 'RUN OVER';
+        copy.textContent = `Final score: ${score}. Tacos caught upstream: ${Math.round(score / 10)}.`;
+        btn.textContent = 'Play Again';
+        stopBtn.style.display = 'inline-flex';
+        mobileLayer.style.display = 'none';
+    }
+}
+
+function drawBackground() {
+    const sky = x.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#090d18'); sky.addColorStop(0.28, '#102f4f'); sky.addColorStop(0.62, '#1d5d8f'); sky.addColorStop(1, '#08111a');
+    x.fillStyle = sky; x.fillRect(0, 0, W, H);
+    
+    if (ultraFX) {
+        const fog = x.createRadialGradient(W * 0.5, H * 0.2, 30, W * 0.5, H * 0.2, Math.max(W, H) * 0.8);
+        fog.addColorStop(0, 'rgba(120,240,255,0.14)'); fog.addColorStop(1, 'rgba(120,240,255,0)');
+        x.fillStyle = fog; x.fillRect(0, 0, W, H);
+    }
+    
+    for (let i = 0; i < 5; i++) {
+        x.fillStyle = `rgba(255,255,255,${0.04 - i * 0.005})`; x.beginPath();
+        x.ellipse(W * (0.5 + Math.sin(t * 0.003 + i) * 0.02), H * (0.11 + i * 0.018), 180 - i * 20, 38 - i * 4, 0, 0, Math.PI * 2); x.fill();
+    }
+    for (const a of aurora) {
+        x.fillStyle = 'rgba(120,240,255,0.07)'; x.beginPath();
+        x.ellipse(a.x, a.y, a.w, a.h, Math.sin(t * 0.002 + a.phase) * 0.2, 0, Math.PI * 2); x.fill();
+    }
+    for (const g of godRays) {
+        x.fillStyle = 'rgba(255,226,160,0.06)'; x.beginPath();
+        x.moveTo(g.x, 0); x.lineTo(g.x + g.w, H * 0.48); x.lineTo(g.x - g.w, H * 0.48); x.closePath(); x.fill();
+    }
+    
+    const riverLeft = W * 0.08, riverRight = W * 0.92, riverTop = H * 0.12, riverBottom = H * 0.95;
+    const rg = x.createLinearGradient(0, riverTop, 0, riverBottom);
+    rg.addColorStop(0, '#1f4f7b'); rg.addColorStop(.45, '#1a78a8'); rg.addColorStop(1, '#0c3150');
+    x.fillStyle = rg; x.fillRect(riverLeft, riverTop, riverRight - riverLeft, riverBottom - riverTop);
+    
+    for (let i = 0; i < 15; i++) {
+        const yy = riverTop + i * ((riverBottom - riverTop) / 14);
+        x.strokeStyle = `rgba(180,236,255,${0.18 - i * 0.004})`; x.lineWidth = i % 3 === 0 ? 2.4 : 1.4;
+        x.beginPath(); x.moveTo(riverLeft, yy);
+        x.bezierCurveTo(W * 0.28, yy - 10 - Math.sin(t * 0.01 + i) * 6, W * 0.72, yy + 10 + Math.cos(t * 0.01 + i) * 6, riverRight, yy);
+        x.stroke();
+    }
+    for (const f of foam) {
+        const fxp = riverLeft + f.x * (riverRight - riverLeft);
+        const fyp = riverTop + ((f.y + t * 0.001 * f.s) % 1) * (riverBottom - riverTop);
+        x.fillStyle = 'rgba(220,248,255,0.12)'; x.beginPath(); x.ellipse(fxp, fyp, f.r * 1.5, f.r, 0, 0, Math.PI * 2); x.fill();
+    }
+    
+    x.fillStyle = '#3e2519'; x.beginPath(); x.moveTo(0, H * 0.2); x.lineTo(W * 0.03, H * 0.16); x.lineTo(W * 0.13, H * 0.34); x.lineTo(0, H * 0.38); x.closePath(); x.fill();
+    x.beginPath(); x.moveTo(W, H * 0.18); x.lineTo(W * 0.97, H * 0.14); x.lineTo(W * 0.87, H * 0.36); x.lineTo(W, H * 0.4); x.closePath(); x.fill();
+    
+    for (let i = 0; i < lanes; i++) {
+        const lx = laneX(i); x.strokeStyle = 'rgba(255,255,255,0.08)'; x.lineWidth = 2;
+        x.beginPath(); x.moveTo(lx, riverTop); x.lineTo(lx, riverBottom); x.stroke();
+    }
+}
+
+function drawBear(px, py) {
+    x.save();
+    x.translate(px, py);
+    const bob = Math.sin(t * 0.12) * 2;
+    x.translate(0, bob);
+    x.rotate(bearTilt * Math.PI / 180);
+    
+    if(stunTimer > 0) x.globalAlpha = 0.5 + Math.sin(t) * 0.5; // flicker when stunned
+    
+    x.fillStyle = 'rgba(255,209,102,0.08)'; x.beginPath(); x.ellipse(0, -14, 74, 28, 0, 0, Math.PI * 2); x.fill();
+    x.fillStyle = 'rgba(0,0,0,.22)'; x.beginPath(); x.ellipse(0, 56, 52, 14, 0, 0, Math.PI * 2); x.fill();
+    
+    roundRect(x, -34, -6, 68, 62, 22, '#8a5a34'); roundRect(x, -24, 6, 48, 38, 16, '#9e6a3d');
+    x.fillStyle = '#d8a36b'; x.beginPath(); x.ellipse(0, 22, 17, 18, 0, 0, Math.PI * 2); x.fill();
+    roundRect(x, -25, 42, 16, 28, 9, '#6e4528'); roundRect(x, 9, 42, 16, 28, 9, '#6e4528');
+    roundRect(x, -48, 2, 16, 34, 9, '#7c4f2d'); roundRect(x, 32, 2, 16, 34, 9, '#7c4f2d');
+    
+    x.fillStyle = '#d8a36b'; x.beginPath(); x.arc(-40, 34, 7, 0, Math.PI * 2); x.arc(40, 34, 7, 0, Math.PI * 2); x.fill();
+    x.beginPath(); x.arc(0, -24, 30, 0, Math.PI * 2); x.fillStyle = '#8a5a34'; x.fill();
+    
+    x.beginPath(); x.arc(-18, -44, 10, 0, Math.PI * 2); x.arc(18, -44, 10, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#d8a36b'; x.beginPath(); x.arc(-18, -44, 4, 0, Math.PI * 2); x.arc(18, -44, 4, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#d8a36b'; x.beginPath(); x.ellipse(0, -14, 16, 12, 0, 0, Math.PI * 2); x.fill();
+    
+    // Eyes (dizzy if stunned)
+    if (stunTimer > 0) {
+        x.strokeStyle = '#fff'; x.lineWidth = 2;
+        x.beginPath(); x.moveTo(-13,-26); x.lineTo(-5,-22); x.moveTo(-5,-26); x.lineTo(-13,-22); x.stroke();
+        x.beginPath(); x.moveTo(5,-26); x.lineTo(13,-22); x.moveTo(13,-26); x.lineTo(5,-22); x.stroke();
+    } else {
+        x.fillStyle = '#fff'; x.beginPath(); x.arc(-9, -24, 3.5, 0, Math.PI * 2); x.arc(9, -24, 3.5, 0, Math.PI * 2); x.fill();
+        x.fillStyle = '#17110d'; x.beginPath(); x.arc(-9, -24, 1.8, 0, Math.PI * 2); x.arc(9, -24, 1.8, 0, Math.PI * 2); x.fill();
+    }
+    
+    x.fillStyle = '#2a160f'; x.beginPath(); x.arc(0, -20, 5, 0, Math.PI * 2); x.fill();
+    x.strokeStyle = '#2a160f'; x.lineWidth = 4; x.beginPath(); x.moveTo(-13, -28); x.lineTo(-3, -30); x.moveTo(3, -30); x.lineTo(13, -28); x.stroke();
+    
+    x.strokeStyle = '#2a160f'; x.lineWidth = 3; x.beginPath(); x.arc(0, -12, 8, 0.1, Math.PI - 0.1 - bearMouth * 0.0); x.stroke();
+    
+    for (let i = 0; i < 8; i++) {
+        x.fillStyle = 'rgba(170,236,255,.72)'; x.beginPath(); x.arc(-28 + i * 8, 54 + Math.sin(t * 0.18 + i) * 4, 3 + Math.sin(i) * 1.2, 0, Math.PI * 2); x.fill();
+    }
+    x.fillStyle = 'rgba(255,255,255,.18)'; x.beginPath(); x.ellipse(0, 55, 50, 9, 0, 0, Math.PI * 2); x.fill();
+    
+    x.globalAlpha = 1;
+    x.restore();
+}
+
+function drawHUDBar() {
+    x.fillStyle = 'rgba(6,10,16,.4)'; roundRect(x, W * 0.14, H * 0.92, W * 0.72, 12, 8, 'rgba(8,12,20,.45)');
+    const prog = W * 0.72 * (timeLeft / 60);
+    const grad = x.createLinearGradient(W * 0.14, 0, W * 0.86, 0);
+    grad.addColorStop(0, '#ffd86f'); grad.addColorStop(1, '#ff7a45');
+    roundRect(x, W * 0.14, H * 0.92, Math.max(0, prog), 12, 8, grad);
+    
+    // Burst Stamina Bar
+    const burstW = W * 0.3;
+    const burstX = W * 0.5 - burstW/2;
+    const burstY = H * 0.88;
+    roundRect(x, burstX, burstY, burstW, 6, 3, 'rgba(0,0,0,0.5)');
+    if (burst > 0) {
+        const bg = x.createLinearGradient(burstX, 0, burstX+burstW, 0);
+        bg.addColorStop(0, '#41d3ff'); bg.addColorStop(1, '#ffffff');
+        roundRect(x, burstX, burstY, burstW * Math.min(1, burst), 6, 3, bg);
+    }
+}
+
+function draw() {
+    // Only clear if absolutely necessary, but background fill covers it.
+    // x.clearRect(0, 0, W, H);
+    x.save();
+    const ms = mobileScale();
+    if (ms !== 1) { x.translate(W * 0.5, H * 0.58); x.scale(ms, ms); x.translate(-W * 0.5, -H * 0.58); }
+    if (shake > 0) x.translate((Math.random() - .5) * shake, (Math.random() - .5) * shake);
+    
+    drawBackground();
+    riverItemsPool.draw(x);
+    drawBear(laneX(bearLanePos), riverY());
+    
+    for (const tr of trails) {
+        x.globalAlpha = Math.max(0, tr.life / 28); x.fillStyle = tr.c;
+        x.beginPath(); x.arc(tr.x, tr.y, 2.5, 0, Math.PI * 2); x.fill();
+    }
+    x.globalAlpha = 1;
+    fxPool.draw(x);
+    
+    drawHUDBar();
+    if (flash > 0) { x.fillStyle = `rgba(255,255,255,${flash * 0.16})`; x.fillRect(0, 0, W, H); }
+    x.restore();
+    
+    scoreEl.textContent = `Score: ${score} (Best: ${highScore})`;
+    comboEl.textContent = 'Combo: x' + combo;
+    timeEl.textContent = timeLeft.toFixed(1) + 's';
+    mobileLayer.style.display = (isMobile() && currentState !== STATE.MENU && currentState !== STATE.OVER) ? 'flex' : 'none';
+}
+
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+resize();
+updateLivesUI();
+loop();
+
+function move(dir) {
+    if (currentState === STATE.MENU) { reset(); return; }
+    if (currentState === STATE.OVER) return;
+    if (currentState === STATE.PAUSED) return;
+    targetLane = Math.max(0, Math.min(lanes - 1, targetLane + dir));
+}
+
+addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft' || e.key === 'a') move(-1);
+    if (e.key === 'ArrowRight' || e.key === 'd') move(1);
+    if (e.key === ' ') {
+        e.preventDefault();
+        if (currentState === STATE.PLAY && stunTimer <= 0) {
+            burst = Math.min(1, burst + .35);
+            ring(laneX(bearLanePos), riverY() - 18, '#ffffff');
+        }
+    }
+    if (e.key === 'p' || e.key === 'P') togglePause();
+    if (e.key === 'r' || e.key === 'R') reset();
+});
+
+let touchStartX = 0;
+addEventListener('pointerdown', e => {
+    if(e.target.tagName === 'BUTTON') return; // ignore UI buttons
+    touchStartX = e.clientX;
+    if (currentState === STATE.MENU) { reset(); return; }
+    if (currentState === STATE.OVER) return;
+    if (currentState === STATE.PLAY) {
+        if (e.clientX < W / 2) move(-1); else move(1);
+    }
+});
+addEventListener('pointerup', e => {
+    if(e.target.tagName === 'BUTTON') return;
+    if (Math.abs(e.clientX - touchStartX) < 16 && currentState === STATE.PLAY && stunTimer <= 0) {
+        burst = Math.min(1, burst + .2);
+        ring(laneX(bearLanePos), riverY() - 18, '#ffffff');
+    }
+});
+
+function bindHold(el, dir) {
+    const down = (e) => { e.preventDefault(); moveHeld = dir; move(dir); };
+    const up = (e) => { e.preventDefault(); if (moveHeld === dir) moveHeld = 0; };
+    el.addEventListener('pointerdown', down);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+    el.addEventListener('pointerleave', up);
+}
+bindHold(leftHold, -1);
+bindHold(rightHold, 1);
+
+btn.onclick = () => reset();
+fxBtn.onclick = () => { ultraFX = !ultraFX; fxBtn.textContent = ultraFX ? 'FX Mode' : 'FX Lite'; };
+stopBtn.onclick = () => {
+    currentState = STATE.MENU;
+    title.textContent = 'Thanks for playing';
+    copy.textContent = 'Run it back any time.';
+    btn.textContent = 'Start Run';
+    stopBtn.style.display = 'none';
+    mobileLayer.style.display = 'none';
+};
+</script>
+</body>
+</html>
