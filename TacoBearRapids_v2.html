@@ -488,7 +488,7 @@ function togglePause() {
 function spawn() {
     const lane = Math.floor(Math.random() * lanes);
     const timeFactor = gameMode === '69s' ? (69 - timeLeft) * 0.02 : Math.min(score / 500, 2.0);
-    const speed = (1.7 + Math.random() * 1.2 + timeFactor) / 3;
+    const speed = ((1.7 + Math.random() * 1.2 + timeFactor) / 3) * 1.75;
     
     // 15% chance for obstacle
     const roll = Math.random();
@@ -552,9 +552,9 @@ function update() {
     // Spawn rate increases as time goes down (or score goes up)
     let spawnRate;
     if (gameMode === '69s') {
-        spawnRate = 0.0073 + ((69 - timeLeft) / 69) * 0.015;
+        spawnRate = (0.0073 + ((69 - timeLeft) / 69) * 0.015) * 1.5;
     } else {
-        spawnRate = 0.0073 + Math.min(0.02, (score / 1500) * 0.01);
+        spawnRate = (0.0073 + Math.min(0.02, (score / 1500) * 0.01)) * 1.5;
     }
     if (Math.random() < spawnRate) spawn();
     
