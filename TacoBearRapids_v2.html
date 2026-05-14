@@ -39,7 +39,7 @@ canvas { display: block; width: 100vw; height: 100dvh; }
 }
 #center {
   position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%);
-  text-align: center; display: none; pointer-events: auto; z-index: 100;
+  text-align: center; display: block; pointer-events: auto; z-index: 100;
 }
 #card {
   width: min(92vw,560px);
@@ -106,6 +106,7 @@ canvas { display: block; width: 100vw; height: 100dvh; }
       <div class="pill" id="combo">Combo: x1</div>
       <div class="pill" id="lives"></div>
       <div class="pill" id="time">60.0s</div>
+      <button class="btn secondary-btn" id="stopBtn" style="display:none; padding: 6px 12px; font-size: 13px;">Stop</button>
     </div>
   </div>
   
@@ -115,10 +116,10 @@ canvas { display: block; width: 100vw; height: 100dvh; }
       <p id="copy">Desktop: hold A/D or ←/→. Space to Burst. P to Pause.<br>Mobile: use the on-screen arrows.</p>
       <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
         <button class="btn" id="btn69">69s Mode</button>
-        <button class="btn" id="btnInf">Infinite Mode</button>
+        <button class="btn secondary-btn" id="btnInf">Infinite Mode</button>
         <button class="btn secondary-btn" id="fxBtn">FX Mode</button>
-        <button class="btn secondary-btn" id="stopBtn" style="display:none">Stop</button>
       </div>
+      <button class="btn" id="startBtn" style="width:100%; margin-top:16px; font-size:18px;">START GAME</button>
       <div id="gameOverForm" style="display:none; margin-top: 16px;">
         <input type="text" id="nicknameInput" placeholder="Enter your nickname..." style="width:100%; padding:12px; margin-bottom:12px; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.2); border-radius:8px; color:white; font-size:16px;">
         <button class="btn" id="submitScoreBtn" style="width:100%;">Save Score</button>
@@ -186,6 +187,7 @@ const nicknameInput = document.getElementById('nicknameInput');
 const submitScoreBtn = document.getElementById('submitScoreBtn');
 const fxBtn = document.getElementById('fxBtn');
 const stopBtn = document.getElementById('stopBtn');
+const startBtn = document.getElementById('startBtn');
 const title = document.getElementById('title');
 const copy = document.getElementById('copy');
 const mobileLayer = document.getElementById('mobileLayer');
@@ -444,6 +446,7 @@ function reset(mode = '69s') {
     btn69.style.display = 'none';
     btnInf.style.display = 'none';
     fxBtn.style.display = 'none';
+    startBtn.style.display = 'none';
     stopBtn.style.display = 'inline-flex';
     gameOverForm.style.display = 'none';
     
@@ -466,6 +469,7 @@ function gameOverState() {
     btn69.style.display = 'none';
     btnInf.style.display = 'none';
     fxBtn.style.display = 'none';
+    startBtn.style.display = 'none';
     gameOverForm.style.display = 'block';
     mobileLayer.style.display = 'none';
 }
@@ -742,7 +746,7 @@ updateLivesUI();
 loop();
 
 function move(dir) {
-    if (currentState === STATE.MENU) { reset(); return; }
+    if (currentState === STATE.MENU) return;
     if (currentState === STATE.OVER) return;
     if (currentState === STATE.PAUSED) return;
     targetLane = Math.max(0, Math.min(lanes - 1, targetLane + dir));
@@ -766,7 +770,7 @@ let touchStartX = 0;
 addEventListener('pointerdown', e => {
     if(e.target.tagName === 'BUTTON') return; // ignore UI buttons
     touchStartX = e.clientX;
-    if (currentState === STATE.MENU) { reset(); return; }
+    if (currentState === STATE.MENU) return;
     if (currentState === STATE.OVER) return;
     if (currentState === STATE.PLAY) {
         if (e.clientX < W / 2) move(-1); else move(1);
@@ -791,8 +795,10 @@ function bindHold(el, dir) {
 bindHold(leftHold, -1);
 bindHold(rightHold, 1);
 
-btn69.onclick = () => reset('69s');
-btnInf.onclick = () => reset('infinite');
+let selectedMode = '69s';
+btn69.onclick = () => { selectedMode = '69s'; btn69.classList.remove('secondary-btn'); btnInf.classList.add('secondary-btn'); };
+btnInf.onclick = () => { selectedMode = 'infinite'; btnInf.classList.remove('secondary-btn'); btn69.classList.add('secondary-btn'); };
+startBtn.onclick = () => reset(selectedMode);
 fxBtn.onclick = () => { ultraFX = !ultraFX; fxBtn.textContent = ultraFX ? 'FX Mode' : 'FX Lite'; };
 
 stopBtn.onclick = () => {
@@ -815,6 +821,7 @@ submitScoreBtn.onclick = () => {
     btn69.style.display = 'inline-flex';
     btnInf.style.display = 'inline-flex';
     fxBtn.style.display = 'inline-flex';
+    startBtn.style.display = 'inline-flex';
     const lastNick = localStorage.getItem('tacobear_nickname') || '';
     scoreEl.textContent = `Score: 0 (Best: ${highScore} ${lastNick})`;
 };
